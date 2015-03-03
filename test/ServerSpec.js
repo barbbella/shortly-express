@@ -13,7 +13,6 @@ var Link = require('../app/models/link');
 // Remove the 'x' from beforeEach block when working on
 // authentication tests.
 /************************************************************/
-var beforeEach = function(){};
 var xbeforeEach = function(){};
 /************************************************************/
 
@@ -64,7 +63,7 @@ describe('', function() {
 
     var requestWithSession = request.defaults({jar: true});
 
-    beforeEach(function(done){      // create a user that we can then log-in with
+    xbeforeEach(function(done){      // create a user that we can then log-in with
       new User({
           'username': 'Phillip',
           'password': 'Phillip'
@@ -139,6 +138,7 @@ describe('', function() {
           db.knex('urls')
             .where('title', '=', 'Funny animal pictures, funny animals, funniest dogs')
             .then(function(urls) {
+              console.log("HERE", urls['0']);
               if (urls['0'] && urls['0']['title']) {
                 var foundTitle = urls['0']['title'];
               }
@@ -154,7 +154,7 @@ describe('', function() {
 
       var link;
 
-      //beforeEach(function(done){
+      beforeEach(function(done){
         // save a link to the database
         link = new Link({
           url: 'http://roflzoo.com/',
@@ -162,10 +162,9 @@ describe('', function() {
           base_url: 'http://127.0.0.1:4568'
         });
         link.save().then(function(){
-          //done();
+          done();
         });
-
-      //});
+      });
 
       it('Returns the same shortened code', function(done) {
         var options = {
@@ -173,7 +172,7 @@ describe('', function() {
           'followAllRedirects': true,
           'uri': 'http://127.0.0.1:4568/links',
           'json': {
-            'url': 'http://roflzoo.com/'
+            'url': 'http://www.roflzoo.com/'
           }
         };
 
@@ -214,7 +213,7 @@ describe('', function() {
 
   }); // 'Link creation'
 
-  describe('Priviledged Access:', function(){
+  xdescribe('Priviledged Access:', function(){
 
     it('Redirects to login page if a user tries to access the main page and is not signed in', function(done) {
       request('http://127.0.0.1:4568/', function(error, res, body) {
