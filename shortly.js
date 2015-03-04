@@ -2,6 +2,7 @@ var express = require('express');
 var util = require('./lib/utility');
 var partials = require('express-partials');
 var bodyParser = require('body-parser');
+var bcrypt = require('bcrypt-nodejs');
 
 var db = require('./app/config');
 var Users = require('./app/collections/users');
@@ -24,9 +25,6 @@ app.use(express.static(__dirname + '/public'));
 
 app.use(cookieParser());
 app.use(session({
-  //genid: function(req) {
-  //  return uuid();
-  //},
   secret: 'keyboard cat',
   resave: false,
   saveUninitialized: true
@@ -44,7 +42,6 @@ function(req, res) {
   restrict(req, res, function() {
     res.render('index');
   });
-  //res.render('index');
 });
 
 app.get('/links', 
@@ -54,36 +51,35 @@ function(req, res) {
       res.send(200, links.models);
     });
   });
-  //Links.reset().fetch().then(function(links) {
-  //  res.send(200, links.models);
-  //});
 });
 
 app.post('/links', 
 function(req, res) {
+  // checks validity of entry
   var uri = req.body.url;
 
   if (!util.isValidUrl(uri)) {
     console.log('Not a valid url: ', uri);
     return res.send(404);
   }
-
+  // if valid, creates new Link if found, returns attributes
   new Link({ url: uri }).fetch().then(function(found) {
     if (found) {
       res.send(200, found.attributes);
     } else {
+      // if not found gets header
       util.getUrlTitle(uri, function(err, title) {
         if (err) {
           console.log('Error reading URL heading: ', err);
           return res.send(404);
         }
-
+        // creates new link entry
         var link = new Link({
           url: uri,
           title: title,
           base_url: req.headers.origin
         });
-
+        // saves entry
         link.save().then(function(newLink) {
           Links.add(newLink);
           res.send(200, newLink);
@@ -110,31 +106,64 @@ app.get('/login', function(req, res) {
   res.render('login');
 });
 
-app.post('/login', function(req, res) {
+app.get('/signup', function(req, res) {
+  res.render('signup');
+});
 
+app.get('/logout', function(req, res) {
+  req.session.destroy(function() {
+    res.render('logout');
+  });
+});
+
+app.post('/signup', function(req, res) {
   var username = req.body.username;
   var password = req.body.password;
 
-  if(username == 'demo' && password == 'demo'){
-    req.session.regenerate(function(){
-      req.session.user = username;
-      res.redirect('/login');
-      alert("Not allowed");
-    });
-  }
-  else {
-    res.redirect('login');
-  }
+
+  new User({ username: username }).fetch().then(function(user) {
+    if (!user) {
+      var newUser = new User({
+        username: username,
+        password: password
+      });
+      newUser.save().then(function(savedUser) {
+        util.createSession(req, res, savedUser);
+      });
+    } else {
+      console.log('Account already exists');
+      res.redirect('/signup');
+    }
+  });
+
+
+});
+
+app.post('/login', function(req, res) {
+  //login
+  var username = req.body.username;
+  var password = req.body.password;
+
+  new User({ username: username }).fetch().then(function(user) {
+    if (!user) {
+      return res.redirect('/login');
+    } else {
+      user.comparePassword(password, function(match) {
+        if (match) {
+          util.createSession(req, res, user);
+        } else {
+          res.redirect('/login');
+        }
+      })
+    }
+  });
+
 });
 
 app.get('/logout', function(req, res){
   req.session.destroy(function(){
     res.redirect('/');
   });
-});
-
-app.get('/restricted', restrict, function(request, response){
-  response.send('This is the restricted area! Hello ' + request.session.user + '! click <a href="/logout">here to logout</a>');
 });
 
 /************************************************************/
